@@ -1,0 +1,137 @@
+name: PR Title from Branch
+description: >-
+  Set a pull request's title and labels derived from the topic branch name
+  ({user}/{issue}/{category}/{summary})
+author: hayat01sh1da
+branding:
+  icon: feather
+  color: blue
+
+inputs:
+  branch-name:
+    description: "Branch name to derive from (default: the pull request's head branch)"
+    required: false
+    default: ''
+  github-token:
+    description: >-
+      Token used to update the pull request. The default GITHUB_TOKEN works
+      when the job grants `permissions: pull-requests: write` (plus
+      `issues: write` when `create-label` is 'true').
+    required: false
+    default: ${{ github.token }}
+  apply-title:
+    description: Apply the derived title to the pull request
+    required: false
+    default: 'true'
+  apply-label:
+    description: Apply the derived labels to the pull request
+    required: false
+    default: 'false'
+  create-label:
+    description: "apply-label only: create labels missing from the repository instead of skipping them"
+    required: false
+    default: 'false'
+  overwrite:
+    description: >-
+      Apply the title on any pull_request event, not only `opened` — beware
+      this clobbers manually edited titles on `synchronize` runs
+    required: false
+    default: 'false'
+
+outputs:
+  title:
+    description: "The derived pull request title, e.g. '[service] Improve Onboarding Flow'"
+    value: ${{ steps.derive.outputs.title }}
+  labels:
+    description: "The derived labels as a JSON array, e.g. '[\"Hotfix\",\"service\"]'"
+    value: ${{ steps.derive.outputs.labels }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.x'
+
+    - name: Install spreen-pr
+      shell: bash
+      env:
+        # Pinned so existing action tags keep their behaviour; bumped per action release.
+        SPREEN_PR_VERSION: 0.1.0
+      run: pip install --quiet "spreen-pr==${SPREEN_PR_VERSION}"
+
+    - name: Derive the Title and Labels
+      id: derive
+      shell: bash
+      env:
+        BRANCH_NAME: ${{ inputs.branch-name }}
+        HEAD_REF: ${{ github.head_ref }}
+      run: |
+        set -euo pipefail
+        branch="${BRANCH_NAME:-$HEAD_REF}"
+        if [ -z "$branch" ]; then
+          echo '::error::No branch name: pass the branch-name input or run on a pull_request event.'
+          exit 1
+        fi
+        result="$(pr-title "$branch" --format json)"
+        {
+          echo "title=$(jq -r '.title' <<< "$result")"
+          echo "labels=$(jq -c '.labels' <<< "$result")"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Apply the Title
+      if: ${{ inputs.apply-title == 'true' && github.event_name == 'pull_request' && (github.event.action == 'opened' || inputs.overwrite == 'true') }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        TITLE: ${{ steps.derive.outputs.title }}
+      run: |
+        set -euo pipefail
+        curl -fsS -X PATCH \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H 'Accept: application/vnd.github+json' \
+          "${GITHUB_API_URL}/repos/${REPOSITORY}/pulls/${PR_NUMBER}" \
+          -d "$(jq -n --arg title "$TITLE" '{title: $title}')" > /dev/null
+        echo "Applied the title: ${TITLE}"
+
+    - name: Apply the Labels
+      if: ${{ inputs.apply-label == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        LABELS: ${{ steps.derive.outputs.labels }}
+        CREATE_LABEL: ${{ inputs.create-label }}
+      run: |
+        set -euo pipefail
+        apply=()
+        while IFS= read -r label; do
+          encoded="$(jq -rn --arg label "$label" '$label | @uri')"
+          if curl -fsS -o /dev/null \
+               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+               -H 'Accept: application/vnd.github+json' \
+               "${GITHUB_API_URL}/repos/${REPOSITORY}/labels/${encoded}"; then
+            apply+=("$label")
+          elif [ "$CREATE_LABEL" = 'true' ]; then
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H 'Accept: application/vnd.github+json' \
+              "${GITHUB_API_URL}/repos/${REPOSITORY}/labels" \
+              -d "$(jq -n --arg name "$label" '{name: $name, color: "f0b429"}')" > /dev/null
+            apply+=("$label")
+          else
+            echo "::warning::Label '${label}' does not exist in ${REPOSITORY}; skipped (set create-label: 'true' to create it)."
+          fi
+        done < <(jq -r '.[]' <<< "$LABELS")
+        if [ "${#apply[@]}" -gt 0 ]; then
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H 'Accept: application/vnd.github+json' \
+            "${GITHUB_API_URL}/repos/${REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            -d "$(printf '%s\n' "${apply[@]}" | jq -R . | jq -s '{labels: .}')" > /dev/null
+          echo "Applied the labels: ${apply[*]}"
+        fi

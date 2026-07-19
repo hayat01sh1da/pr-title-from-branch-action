@@ -1,0 +1,71 @@
+name: Action - CI
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - action.yml
+      - .github/workflows/action--ci.yml
+  pull_request:
+    paths:
+      - action.yml
+      - .github/workflows/action--ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Derive from a standard branch
+        id: standard
+        uses: ./
+        with:
+          branch-name: hayat01sh1da/issue-89/service/improve-onboarding-flow
+          apply-title: 'false'
+
+      - name: Assert the standard derivation
+        env:
+          TITLE: ${{ steps.standard.outputs.title }}
+          LABELS: ${{ steps.standard.outputs.labels }}
+        run: |
+          set -euo pipefail
+          test "$TITLE" = '[service] Improve Onboarding Flow'
+          test "$LABELS" = '["service"]'
+
+      - name: Derive from a hotfix branch
+        id: hotfix
+        uses: ./
+        with:
+          branch-name: hayat01sh1da/issue-90/hotfix/service/fix_login_crash
+          apply-title: 'false'
+
+      - name: Assert the hotfix derivation
+        env:
+          TITLE: ${{ steps.hotfix.outputs.title }}
+          LABELS: ${{ steps.hotfix.outputs.labels }}
+        run: |
+          set -euo pipefail
+          test "$TITLE" = '[Hotfix][service] Fix Login Crash'
+          test "$LABELS" = '["Hotfix","service"]'
+
+      - name: Reject a malformed branch
+        id: malformed
+        continue-on-error: true
+        uses: ./
+        with:
+          branch-name: main
+          apply-title: 'false'
+
+      - name: Assert the malformed branch failed
+        env:
+          OUTCOME: ${{ steps.malformed.outcome }}
+        run: |
+          set -euo pipefail
+          test "$OUTCOME" = 'failure'
