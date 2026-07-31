@@ -52,13 +52,13 @@ runs:
     - name: Setup Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.x'
+        python-version: 3.14.6
 
     - name: Install spreen-pr
       shell: bash
       env:
         # Pinned so existing action tags keep their behaviour; bumped per action release.
-        SPREEN_PR_VERSION: 0.1.0
+        SPREEN_PR_VERSION: 0.1.1
       run: pip install --quiet "spreen-pr==${SPREEN_PR_VERSION}"
 
     - name: Derive the Title and Labels
