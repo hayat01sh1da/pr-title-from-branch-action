@@ -52,7 +52,7 @@ runs:
     - name: Setup Python
       uses: actions/setup-python@v6
       with:
-        python-version: 3.14.6
+        python-version: 3.14.7
 
     - name: Install spreen-pr
       shell: bash
