@@ -58,7 +58,7 @@ runs:
       shell: bash
       env:
         # Pinned so existing action tags keep their behaviour; bumped per action release.
-        SPREEN_PR_VERSION: 0.1.1
+        SPREEN_PR_VERSION: 0.1.2
       run: pip install --quiet "spreen-pr==${SPREEN_PR_VERSION}"
 
     - name: Derive the Title and Labels
