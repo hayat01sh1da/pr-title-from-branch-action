@@ -1,6 +1,7 @@
 # PR Title from Branch
 
 [![Action - CI](https://github.com/hayat01sh1da/pr-title-from-branch-action/workflows/Action%20-%20CI/badge.svg)](https://github.com/hayat01sh1da/pr-title-from-branch-action/actions/workflows/action--ci.yml)
+[![Action - Daily Runtime Update](https://github.com/hayat01sh1da/pr-title-from-branch-action/workflows/Action%20-%20Daily%20Runtime%20Update/badge.svg)](https://github.com/hayat01sh1da/pr-title-from-branch-action/actions?query=workflow%3A%22Action%20-%20Daily%20Runtime%20Update%22)
 
 Set a pull request's title and labels derived from the topic branch name: open a PR from `{user}/{issue}/{category}/{summary}` and the title becomes `[category] Summary In Title Case`, with `{category}` (and `Hotfix`) available as labels.  
 This action is a thin adapter over the [`spreen-pr`](https://pypi.org/project/spreen-pr/) PyPI package (also published [as a RubyGem](https://rubygems.org/gems/spreen-pr)): it runs the `pr-title` CLI on the head branch and applies the result to the pull request via the API.
