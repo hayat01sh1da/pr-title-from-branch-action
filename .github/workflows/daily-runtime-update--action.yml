@@ -3,7 +3,7 @@
 # available. The version files and every documented copy of the version move
 # together (see .github/scripts/runtime_update.sh).
 
-name: Action - Daily Runtime Update
+name: Daily Runtime Update - Action
 
 on:
   schedule:
