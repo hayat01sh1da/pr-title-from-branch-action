@@ -6,11 +6,11 @@ on:
       - master
     paths:
       - action.yml
-      - .github/workflows/action--ci.yml
+      - .github/workflows/ci--action.yml
   pull_request:
     paths:
       - action.yml
-      - .github/workflows/action--ci.yml
+      - .github/workflows/ci--action.yml
   workflow_dispatch:
 
 permissions:
